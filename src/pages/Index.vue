@@ -12,11 +12,17 @@
 
         <div class="mt-5">
           <button class="bg-teal-500 focus:outline-none rounded hover:bg-teal-600 text-white p-2 px-5"
-                  @click="downloadData">Exportieren</button>
+                  @click="!isLoading && downloadData()">Exportieren
+          </button>
         </div>
 
         <div v-if="isLoading" class="mt-5">
-          <div class="lds-ripple"><div></div><div></div></div>
+          <div class="h-1 bg-green-400 my-5" style="transition: 1s width; border-radius: 2px" :style="`width: ${progressPercentage}%`"></div>
+          <div class="my-4 font-bold text-green-500" v-text="`${progressPercentage}%`"></div>
+          <div class="lds-ripple">
+            <div></div>
+            <div></div>
+          </div>
         </div>
         <div v-if="hasError" class="bg-red-500 text-white p-3 mt-5">
           Fehler beim Exportieren! (API Key überprüfen)
@@ -33,9 +39,11 @@
 </template>
 
 <script>
-  import { parse } from 'json2csv'
   import download from 'downloadjs'
+  import { parse } from 'json2csv'
   import { store } from '../state/store'
+  import { getFootballData } from '../api/footballApi'
+  import { createProgress } from '../api/footballProgress'
 
   export default {
     metaInfo: {
@@ -43,6 +51,7 @@
     },
     data () {
       return {
+        progress: 0,
         hasError: false,
         isLoading: false,
       }
@@ -56,51 +65,65 @@
           return store.commit('setApiKey', newValue)
         }
       },
+      progressPercentage () {
+        return Math.round(this.progress * 100, 10)
+      },
     },
     methods: {
       downloadData () {
-        const componentScope = this
         this.hasError = false
         this.isLoading = true
 
-        let isSuccessful = false
+        /*
+           Liga
+           Heimmanschaft
+           Gastmanschaft
+           Gesamtes Spiel Tore
+           Erste Halbzeit Tore
+           Zweite Halbzeit Tore
+           Gesamtes Spiel Ecken
+           Erste Halbzeit Ecken
+           Zweite Halbzeit Ecken
+           Gesamtes Spiel Karten
+           Erste Halbzeit Karten
+           Zweite Halbzeit Karten
+         */
+        this.progress = 0
+        const progress = createProgress()
 
-        const xhr = new XMLHttpRequest()
+        const handle = setInterval(() => {
+          this.progress = progress.get()
+        }, 50)
 
-        xhr.withCredentials = true
+        getFootballData(progress)(this.apiKey.trim())(754)
+          .then(fixtures => {
+            this.isLoading = false
+            this.progress = 0
 
-        xhr.addEventListener('readystatechange', function () {
-          if (this.readyState === this.DONE) {
-            isSuccessful = true
-            componentScope.isLoading = false
+            clearInterval(handle)
 
-            if (this.responseText.trim()) {
-              const data = JSON.parse(this.responseText).api.fixtures
-              const csv = parse(data, {
-                fields: ['league_id', 'round', 'venue']
+            if (fixtures) {
+              const csv = parse(fixtures, {
+                fields: [
+                  { value: 'fixture_id', label: 'ID' },
+                  { value: 'league.name', label: 'Liga' },
+                  { value: 'homeTeam.team_name', label: 'Heimmannschaft' },
+                  { value: 'awayTeam.team_name', label: 'Gastmannschaft' },
+                  { value: 'allGoals', label: 'Gesamtes Spiel Tore' },
+                  { value: 'firstHalfGoals', label: 'Erste Halbzeit Tore' },
+                  { value: 'secondHalfGoals', label: 'Zweite Halbzeit Tore' },
+                  { value: 'allCorners', label: 'Gesamtes Spiel Ecken' },
+                  { value: 'allCards', label: 'Gesamtes Spiel Karten' },
+                ]
               })
-              download(csv, 'export.csv', 'text/csv')
+              download(csv, `export_${(new Date()).toISOString().replace('.','_')}.csv`, 'text/csv')
             }
-          }
-        })
-
-        xhr.onerror = e => console.log(e)
-
-        xhr.open('GET', 'https://api-football-v1.p.rapidapi.com/v2/fixtures/league/2/Regular_Season_-_11')
-
-        xhr.setRequestHeader('x-rapidapi-host', 'api-football-v1.p.rapidapi.com')
-
-        xhr.setRequestHeader('x-rapidapi-key', this.apiKey.trim())
-
-        xhr.send(null)
-
-        setTimeout(() => {
-          if (!isSuccessful) {
-            xhr.abort()
+          })
+          .catch((e) => {
+            console.log(e)
             this.hasError = true
             this.isLoading = false
-          }
-        }, 3000)
+          })
       },
     }
   }
