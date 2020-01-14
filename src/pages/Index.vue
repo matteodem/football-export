@@ -132,6 +132,12 @@
                   { value: 'secondHalfGoals', label: 'Zweite Halbzeit Tore' },
                   { value: 'allCorners', label: 'Gesamtes Spiel Ecken' },
                   { value: 'allCards', label: 'Gesamtes Spiel Karten' },
+                  { value: 'goalsHomeTeam', label: 'Heim Tore' },
+                  { value: 'goalsAwayTeam', label: 'Gast Tore' },
+                  { value: 'cornerKicks.home', label: 'Heim Ecken' },
+                  { value: 'cornerKicks.away', label: 'Gast Ecken' },
+                  { value: 'yellowAndRedCards.home', label: 'Heim Karten' },
+                  { value: 'yellowAndRedCards.away', label: 'Gast Karten' },
                 ]
               })
               download(csv, `export_${(new Date()).toISOString().replace('.','_')}.csv`, 'text/csv')

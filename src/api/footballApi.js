@@ -1,4 +1,4 @@
-import { flow, split, toNumber, add, map, reduce, get } from 'lodash/fp'
+import { flow, split, toNumber, add, map, reduce, get, take } from 'lodash/fp'
 import { store } from '../state/store'
 
 const footballEndpoint = 'https://api-football-v1.p.rapidapi.com/v2'
@@ -102,6 +102,15 @@ const enhanceFixture = apiKey => async fixture => {
         statistics['Red Cards'].home,
         statistics['Red Cards'].away,
       ])
+
+      statisticData.yellowAndRedCards = {
+        home: addNumbers([statistics['Yellow Cards'].home, statistics['Red Cards'].home]),
+        away: addNumbers([statistics['Yellow Cards'].away, statistics['Red Cards'].away]),
+      }
+
+      statisticData.cornerKicks = statistics['Corner Kicks']
+      statisticData.yellowCards = statistics['Yellow Cards']
+      statisticData.redCards = statistics['Red Cards']
 
       return statisticData
     }
