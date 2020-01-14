@@ -10,7 +10,14 @@
           <input class="border mt-2 w-full" id="key" name="key" type="text" v-model="apiKey" placeholder=""/>
         </label>
 
-        <div class="mt-5">
+        <div class="mt-3">
+          <label>
+            Football League
+            <v-select :options="leagueOptions" v-model="selectedLeague"></v-select>
+          </label>
+        </div>
+
+        <div class="mt-5" v-if="selectedLeague.code && apiKey">
           <button class="bg-teal-500 focus:outline-none rounded hover:bg-teal-600 text-white p-2 px-5"
                   @click="!isLoading && downloadData()">Exportieren
           </button>
@@ -29,11 +36,10 @@
         </div>
       </div>
 
-      <p class="mb-3 mt-10 italic text-gray-700">
-        CSV Export von folgenden Ligen: <span class="font-bold">Belgien 1 Liga, Deutschland 1 Liga, Deutschland 2 Liga, England 1 Liga, England 2 Liga, Frankreich 1 Liga, Frankreich 2 Liga, Österreich 1 Liga, Italien 1 Liga, Italien 2 Liga, Portugal 1 Liga, Schweiz 1 Liga, Spanien 1 Liga, Spanien 2 Liga</span>
-      </p>
+      <a href="https://www.api-football.com/coverage" class="block mb-3 mt-10 italic text-gray-700">
+        CSV Export von 400+ Ligen & Cups.
+      </a>
     </div>
-
 
   </Layout>
 </template>
@@ -42,8 +48,16 @@
   import download from 'downloadjs'
   import { parse } from 'json2csv'
   import { store } from '../state/store'
+  import { leagues } from '../api/leagues.json'
   import { getFootballData } from '../api/footballApi'
   import { createProgress } from '../api/footballProgress'
+
+  const leagueOptionData = leagues
+    .sort((a, b) => (b.season - a.season))
+    .map(league => ({
+      code: league.league_id,
+      label: `${league.season} - ${league.country} - ${league.name} (${league.league_id})`,
+    }))
 
   export default {
     metaInfo: {
@@ -54,6 +68,7 @@
         progress: 0,
         hasError: false,
         isLoading: false,
+        selectedLeague: '',
       }
     },
     computed: {
@@ -68,6 +83,9 @@
       progressPercentage () {
         return Math.round(this.progress * 100, 10)
       },
+      leagueOptions () {
+        return leagueOptionData
+      }
     },
     methods: {
       downloadData () {
@@ -95,7 +113,7 @@
           this.progress = progress.get()
         }, 50)
 
-        getFootballData(progress)(this.apiKey.trim())(754)
+        getFootballData(progress)(this.apiKey.trim())(this.selectedLeague.code)
           .then(fixtures => {
             this.isLoading = false
             this.progress = 0

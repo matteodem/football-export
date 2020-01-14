@@ -1,22 +1,7 @@
-import { flow, split, toNumber, add, map, reduce, get, take } from 'lodash/fp'
+import { flow, split, toNumber, add, map, reduce, get } from 'lodash/fp'
 import { store } from '../state/store'
 
 const footballEndpoint = 'https://api-football-v1.p.rapidapi.com/v2'
-
-const leagueIds = [
-  656, // 2019 / 2020 - Belgium - Jupiler Pro League (1)
-  754, // 2019 / 2020 - Germany - Bundesliga 1
-  755, // 2019 / 2020 - Germany - Bundesliga 2
-  581, // 2019 / 2020 - England - League One
-  582, // 2019 / 2020 - England - League Two
-  577, // 2019 / 2020 - Austria - League One
-  891, // 2019 / 2020 - Italy - Serie A
-  902, // 2019 / 2020 - Italy - Serie B
-  766, // 2019 / 2020 - Portugal - League One
-  576, // 2019 / 2020 - Switzerland - League One
-  775, // 2019 / 2020 - Spain - League One
-  1265, // 2019 / 2020 - Spain - League Two
-]
 
 const callEndpoint = apiKey => url => new Promise((resolve, reject) => {
   let isSuccessful = false
@@ -61,27 +46,36 @@ const getSumOfScore = flow(split('-'), addNumbers)
 const getFirstFixtureStatistics = get('fixtures.0.statistics')
 
 const getFixtureDataStatistics = apiKey => async fixtureId => {
-  const storeData = store.state.fixtureStatistics[fixtureId]
-
-  if (storeData) {
-    return storeData
-  }
-
   const result = await callEndpoint(apiKey)(`/fixtures/id/${fixtureId}`)
   const data = getFirstFixtureStatistics(result)
 
-  await wait(250)
-
-  console.log(fixtureId, data)
-  store.commit('addFixtureStatistic', { id: fixtureId, data })
+  await wait(100)
 
   return data
 }
 
 const wait = milliSeconds => new Promise(resolve => setTimeout(resolve, milliSeconds))
 
+const getCachedStatisticData = fixtureId => async createCacheableData => {
+  const storeData = store.state.fixtureStatistics[fixtureId]
+
+  if (storeData) {
+    return storeData
+  }
+
+  const data = await createCacheableData()
+
+  store.commit('addFixtureStatistic', { id: fixtureId, data })
+
+  return data
+}
+
 const enhanceFixture = apiKey => async fixture => {
   const data = { ...fixture }
+
+  if (fixture.status === 'Not Started') {
+    return data
+  }
 
   data.firstHalfGoals = data.score.halftime ? getSumOfScore(data.score.halftime) : 0
   data.secondHalfGoals = 0
@@ -92,25 +86,33 @@ const enhanceFixture = apiKey => async fixture => {
 
   data.allGoals = data.firstHalfGoals + data.secondHalfGoals
 
-  const statistics = await getFixtureDataStatistics(apiKey)(fixture.fixture_id)
+  const statisticData = await getCachedStatisticData(fixture.fixture_id)(async () => {
+    const statistics = await getFixtureDataStatistics(apiKey)(fixture.fixture_id)
 
-  if (statistics) {
-    const homeCorners = toNumber(statistics['Corner Kicks'].home)
-    const awayCorners = toNumber(statistics['Corner Kicks'].away)
+    if (statistics) {
+      const statisticData = {}
+      const homeCorners = toNumber(statistics['Corner Kicks'].home)
+      const awayCorners = toNumber(statistics['Corner Kicks'].away)
 
-    data.allCorners = homeCorners + awayCorners
+      statisticData.allCorners = homeCorners + awayCorners
 
-    data.allCards = addNumbers([
-      statistics['Yellow Cards'].home,
-      statistics['Yellow Cards'].away,
-      statistics['Red Cards'].home,
-      statistics['Red Cards'].away,
-    ])
+      statisticData.allCards = addNumbers([
+        statistics['Yellow Cards'].home,
+        statistics['Yellow Cards'].away,
+        statistics['Red Cards'].home,
+        statistics['Red Cards'].away,
+      ])
+
+      return statisticData
+    }
+
+    return null
+  })
+
+  return {
+    ...data,
+    ...(statisticData || {}),
   }
-
-  await wait(250)
-
-  return data
 }
 
 export const getFootballData = progress => apiKey => async (leagueId) => {
@@ -122,10 +124,10 @@ export const getFootballData = progress => apiKey => async (leagueId) => {
 
   for (const [index, fixture] of fixtures.entries()) {
     progress.set((index + 1) / fixtures.length)
+
     enhancendFixtures = [
       ...enhancendFixtures,
-      fixture,
-      //await enhanceFixture(apiKey)(fixture)
+      await enhanceFixture(apiKey)(fixture),
     ]
   }
 
