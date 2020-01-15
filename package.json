@@ -4,7 +4,8 @@
   "scripts": {
     "build": "gridsome build",
     "develop": "gridsome develop",
-    "explore": "gridsome explore"
+    "explore": "gridsome explore",
+    "deploy": "npm run build && surge dist football-export.surge.s"
   },
   "dependencies": {
     "downloadjs": "^1.4.7",

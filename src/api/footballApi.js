@@ -41,7 +41,13 @@ const callEndpoint = apiKey => url => new Promise((resolve, reject) => {
 
 const addNumbers = flow(map(toNumber), reduce(add)(0))
 
-const getSumOfScore = flow(split('-'), addNumbers)
+const getSumOfScore = flow(split('-'), ([home, away]) => {
+  return {
+    home,
+    away,
+    all: addNumbers([home, away]),
+  }
+})
 
 const getFirstFixtureStatistics = get('fixtures.0.statistics')
 
@@ -65,7 +71,9 @@ const getCachedStatisticData = fixtureId => async createCacheableData => {
 
   const data = await createCacheableData()
 
-  store.commit('addFixtureStatistic', { id: fixtureId, data })
+  if (data && Object.keys((data || {})).length > 0) {
+    store.commit('addFixtureStatistic', { id: fixtureId, data })
+  }
 
   return data
 }
@@ -77,11 +85,17 @@ const enhanceFixture = apiKey => async fixture => {
     return data
   }
 
-  data.firstHalfGoals = data.score.halftime ? getSumOfScore(data.score.halftime) : 0
-  data.secondHalfGoals = 0
+  data.firstHalfGoals = data.score.halftime ? getSumOfScore(data.score.halftime) : null
+  const fullTimeScore = fixture.score.fulltime ? getSumOfScore(fixture.score.fulltime) : null
 
-  if (data.score.fulltime) {
-    data.secondHalfGoals = getSumOfScore(fixture.score.fulltime) - data.firstHalfGoals
+  data.secondHalfGoals = null
+
+  if (fullTimeScore && data.firstHalfGoals) {
+    data.secondHalfGoals = {
+      home: fullTimeScore.home - data.firstHalfGoals.home,
+      away: fullTimeScore.away - data.firstHalfGoals.away,
+      all: fullTimeScore.all - data.firstHalfGoals.all,
+    }
   }
 
   data.allGoals = data.firstHalfGoals + data.secondHalfGoals

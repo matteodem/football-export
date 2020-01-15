@@ -1,10 +1,15 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
 import VuexPersistence from 'vuex-persist'
+import { isFunction } from 'lodash/fp'
 
-const vuexLocal = new VuexPersistence({
-  storage: window.localStorage,
-})
+let vuexLocalPlugin = null
+
+if (process.isClient) {
+  vuexLocalPlugin = new VuexPersistence({
+    storage: global.localStorage,
+  }).plugin
+}
 
 Vue.use(Vuex)
 
@@ -21,5 +26,5 @@ export const store = new Vuex.Store({
       state.fixtureStatistics[id] = data
     },
   },
-  plugins: [vuexLocal.plugin],
+  plugins: ([vuexLocalPlugin]).filter(isFunction),
 })
