@@ -5,7 +5,7 @@
     "build": "gridsome build",
     "develop": "gridsome develop",
     "explore": "gridsome explore",
-    "deploy": "npm run build && surge dist football-export.surge.s"
+    "deploy": "npm run build && surge dist football-export.surge.sh"
   },
   "dependencies": {
     "downloadjs": "^1.4.7",

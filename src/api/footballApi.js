@@ -1,4 +1,4 @@
-import { flow, split, toNumber, add, map, reduce, get, take } from 'lodash/fp'
+import { flow, split, toNumber, add, map, reduce, get } from 'lodash/fp'
 import { store } from '../state/store'
 
 const footballEndpoint = 'https://api-football-v1.p.rapidapi.com/v2'
@@ -138,6 +138,34 @@ const enhanceFixture = apiKey => async fixture => {
   }
 }
 
+const switchAwayAndHomeKeys = field => fixture => ({
+  home: get(`${field}.away`)(fixture),
+  away: get(`${field}.home`)(fixture),
+})
+
+const reverseFixture = fixture => {
+  const { goalsHomeTeam, goalsAwayTeam } = fixture
+
+  return Object.assign({}, fixture, {
+    homeTeam: fixture.awayTeam,
+    awayTeam: fixture.homeTeam,
+    goalsHomeTeam: goalsAwayTeam,
+    goalsAwayTeam: goalsHomeTeam,
+    firstHalfGoals: switchAwayAndHomeKeys('firstHalfGoals')(fixture),
+    secondHalfGoals: switchAwayAndHomeKeys('secondHalfGoals')(fixture),
+    cornerKicks: switchAwayAndHomeKeys('cornerKicks')(fixture),
+    yellowAndRedCards: switchAwayAndHomeKeys('yellowAndRedCards')(fixture),
+  })
+}
+
+const reduceFixture = (fixtures, fixture) => {
+  return [
+    ...fixtures,
+    fixture,
+    reverseFixture(fixture)
+  ]
+}
+
 export const getFootballData = progress => apiKey => async (leagueId) => {
   const callWithKey = callEndpoint(apiKey)
 
@@ -154,5 +182,5 @@ export const getFootballData = progress => apiKey => async (leagueId) => {
     ]
   }
 
-  return enhancendFixtures
+  return reduce(reduceFixture)([])(enhancendFixtures)
 }
