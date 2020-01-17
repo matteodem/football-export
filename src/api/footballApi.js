@@ -1,4 +1,4 @@
-import { flow, split, toNumber, add, map, reduce, get } from 'lodash/fp'
+import { flow, split, toNumber, add, map, reduce, get, sortBy } from 'lodash/fp'
 import { store } from '../state/store'
 
 const footballEndpoint = 'https://api-football-v1.p.rapidapi.com/v2'
@@ -158,13 +158,15 @@ const reverseFixture = fixture => {
   })
 }
 
-const reduceFixture = (fixtures, fixture) => {
+const reduceAddReverseFixture = reduce((fixtures, fixture) => {
   return [
     ...fixtures,
     fixture,
     reverseFixture(fixture)
   ]
-}
+})([])
+
+const sortByTeamDuringRound = sortBy(['round', 'homeTeam.team_name'])
 
 export const getFootballData = progress => apiKey => async (leagueId) => {
   const callWithKey = callEndpoint(apiKey)
@@ -182,5 +184,8 @@ export const getFootballData = progress => apiKey => async (leagueId) => {
     ]
   }
 
-  return reduce(reduceFixture)([])(enhancendFixtures)
+  return flow(
+    reduceAddReverseFixture,
+    sortByTeamDuringRound
+  )(enhancendFixtures)
 }
